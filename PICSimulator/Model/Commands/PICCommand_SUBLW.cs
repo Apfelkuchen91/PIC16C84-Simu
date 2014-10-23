@@ -2,6 +2,11 @@
 
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// The W register is subtracted (2’s comple-
+	/// ment method) from the eight bit literal 'k'.
+	/// The result is placed in the W register.
+	/// </summary>
 	class PICCommand_SUBLW : PICCommand
 	{
 		public const string COMMANDCODE = "11 110x kkkk kkkk";
@@ -25,16 +30,16 @@ namespace PICSimulator.Model.Commands
 
 			if (carry = a < b)
 			{
-				a += 0xFF;
+				a += 0x100;
 			}
 
 			uint Result = a - b;
 
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_Z, Result == 0);
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_DC, dc);
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_C, !carry);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_Z, (Result % 0x100) == 0);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_DC, dc);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_C, !carry);
 
-			Result %= 0xFF;
+			Result %= 0x100;
 
 			controller.SetWRegister(Result);
 		}

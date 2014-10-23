@@ -1,9 +1,14 @@
 ﻿
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// Decrement register 'f'. If 'd' is 0 the
+	/// result is stored in the W register. If 'd' is
+	/// 1 the result is stored back in register 'f' .
+	/// </summary>
 	class PICCommand_DECFSZ : PICCommand
 	{
-		public const string COMMANDCODE = "00 1011 dfff fff";
+		public const string COMMANDCODE = "00 1011 dfff ffff";
 
 		public readonly bool Target;
 		public readonly uint Register;
@@ -17,14 +22,14 @@ namespace PICSimulator.Model.Commands
 
 		private bool TestCondition(PICController controller) // Returns True if Skip
 		{
-			return controller.GetRegister(Register) == 1; // skip if 1 -> After DEC will be Zero
+			return controller.GetBankedRegister(Register) == 1; // skip if 1 -> After DEC will be Zero
 		}
 
 		public override void Execute(PICController controller)
 		{
 			bool Cond = TestCondition(controller);
 
-			uint Result = controller.GetRegister(Register);
+			uint Result = controller.GetBankedRegister(Register);
 
 			if (Result == 0)
 				Result = 0xFF;
@@ -32,7 +37,7 @@ namespace PICSimulator.Model.Commands
 				Result -= 1;
 
 			if (Target)
-				controller.SetRegister(Register, Result);
+				controller.SetBankedRegister(Register, Result);
 			else
 				controller.SetWRegister(Result);
 

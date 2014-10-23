@@ -63,6 +63,43 @@ namespace PICSimulator.Model
 			return result;
 		}
 
+		public static string LoadSourceCodeFromText(string file)
+		{
+			string[] lines = File.ReadAllLines(file);
+
+			List<string> result = new List<string>();
+
+			foreach (string line in lines)
+			{
+				if (String.IsNullOrWhiteSpace(line))
+					continue;
+
+				var v = splitLine(line);
+
+				string txt = v.Item4.Trim();
+
+				if (!String.IsNullOrWhiteSpace(v.Item1))
+				{
+					txt = "    " + txt;
+				}
+				else if (String.IsNullOrWhiteSpace(v.Item1) && String.IsNullOrWhiteSpace(v.Item2) && txt.ToLower().StartsWith("org "))
+				{
+					txt = "    " + txt;
+				}
+				else if (String.IsNullOrWhiteSpace(v.Item1) && String.IsNullOrWhiteSpace(v.Item2) && txt.ToLower().StartsWith("device "))
+				{
+					txt = "    " + txt;
+				}
+
+				if (!txt.ToLower().StartsWith("list c="))
+				{
+					result.Add(txt);
+				}
+			}
+
+			return String.Join(Environment.NewLine, result);
+		}
+
 		private static Tuple<string, string, string, string> splitLine(string line)
 		{
 			if (line.Length < 27)

@@ -1,6 +1,12 @@
 ﻿
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// Inclusive OR the W register with regis-
+	/// ter 'f'. If 'd' is 0 the result is placed in the
+	/// W register. If 'd' is 1 the result is placed
+	/// back in register 'f'.
+	/// </summary>
 	class PICCommand_IORWF : PICCommand
 	{
 		public const string COMMANDCODE = "00 0100 dfff ffff";
@@ -17,12 +23,12 @@ namespace PICSimulator.Model.Commands
 
 		public override void Execute(PICController controller)
 		{
-			uint Result = controller.GetWRegister() | controller.GetRegister(Register);
+			uint Result = controller.GetWRegister() | controller.GetBankedRegister(Register);
 
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_Z, Result == 0);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_Z, Result == 0);
 
 			if (Target)
-				controller.SetRegister(Register, Result);
+				controller.SetBankedRegister(Register, Result);
 			else
 				controller.SetWRegister(Result);
 		}

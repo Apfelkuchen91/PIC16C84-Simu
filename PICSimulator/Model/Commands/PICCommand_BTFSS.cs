@@ -2,6 +2,13 @@
 
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// If bit 'b' in register 'f' is '0' then the next
+	/// instruction is executed.
+	/// If bit 'b' is '1', then the next instruction is
+	/// discarded and a NOP is executed
+	/// instead, making this a 2T CY instruction.
+	/// </summary>
 	class PICCommand_BTFSS : PICCommand
 	{
 		public const string COMMANDCODE = "01 11bb bfff ffff";
@@ -18,7 +25,7 @@ namespace PICSimulator.Model.Commands
 
 		private bool TestCondition(PICController controller) // Returns True if Skip
 		{
-			return BinaryHelper.GetBit(controller.GetRegister(Register), Bit);
+			return BinaryHelper.GetBit(controller.GetBankedRegister(Register), Bit);
 		}
 
 		public override void Execute(PICController controller)

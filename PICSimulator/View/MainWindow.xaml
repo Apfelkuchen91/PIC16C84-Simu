@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:self="clr-namespace:PICSimulator.View"
         xmlns:avEdit="http://icsharpcode.net/sharpdevelop/avalonedit"
-        Title="MainWindow" Height="550" Width="900" Closed="Window_Closed">
+        Title="MainWindow" Height="594" Width="950" Closed="Window_Closed">
 
     <Window.Resources>
         <ResourceDictionary>
@@ -12,7 +12,7 @@
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Window.Resources>
-    
+
     <Window.CommandBindings>
         <CommandBinding Command="Save" Executed="SaveExecuted" CanExecute="SaveEnabled"/>
         <CommandBinding Command="SaveAs" Executed="SaveAsExecuted" />
@@ -40,7 +40,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="1*"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="100"/>
+            <RowDefinition Height="195"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto"/>
@@ -52,14 +52,27 @@
 
         <Menu Grid.Row="0" Grid.ColumnSpan="5">
             <MenuItem Header="File">
-                <MenuItem Header="New" Command="New"/>
-                <MenuItem Header="Open" Command="Open"/>
-                <MenuItem Header="Exit" Command="Close"/>
+                <MenuItem Header="New" Command="New">
+                    <MenuItem.Icon>
+                        <Image Source="../icons/document.png" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Open" Command="Open">
+                    <MenuItem.Icon>
+                        <Image Source="../icons/folder-open.png" />
+                    </MenuItem.Icon>
+                </MenuItem>
+            </MenuItem>
+            <MenuItem Header="Exit" Command="Close">/
             </MenuItem>
             <MenuItem Header="Edit">
             </MenuItem>
             <MenuItem Header="Help">
-                <MenuItem Header="Show PDF" Click="OnShowpdf"/>
+                <MenuItem Header="Datasheet" Click="OnHelpClicked">
+                    <MenuItem.Icon>
+                        <Image Source="../icons/blue-document-pdf-text.png" />
+                    </MenuItem.Icon>
+                </MenuItem>
             </MenuItem>
         </Menu>
 
@@ -68,15 +81,15 @@
             <self:SimpleToolbarButton BText="Open" BSource="../icons/folder-open.png" BCommand="Open"/>
             <self:SimpleToolbarButton BText="Save" BSource="../icons/disk-return.png" BCommand="Save"/>
             <self:SimpleToolbarButton BText="Save As" BSource="../icons/disk-rename.png" BCommand="SaveAs"/>
-            
+
             <self:SimpleToolbarSeparator />
-            
+
             <self:SimpleToolbarButton BText="Compile" BSource="../icons/box.png" BCommand="self:CustomCmds.Compile"/>
 
             <self:SimpleToolbarSeparator />
 
             <self:SimpleToolbarButton BText="Run" BSource="../icons/control.png" BCommand="self:CustomCmds.Run"/>
-            
+
             <ComboBox Name="cbxSpeed" SelectedIndex="3" MinWidth="85" Margin="5, 0, 5, 0" SelectionChanged="cbxSpeed_SelectionChanged">
                 <ComboBoxItem Content="Snail" />
                 <ComboBoxItem Content="Very Slow" />
@@ -86,7 +99,7 @@
                 <ComboBoxItem Content="Very Fast" />
                 <ComboBoxItem Content="Maximum" />
             </ComboBox>
-            
+
             <self:SimpleToolbarButton BText="Stop" BSource="../icons/control-stop-square.png" BCommand="self:CustomCmds.Stop"/>
 
             <self:SimpleToolbarSeparator />
@@ -96,7 +109,7 @@
             <self:SimpleToolbarButton BText="Step" BSource="../icons/arrow-curve-000-left.png" BCommand="self:CustomCmds.Step"/>
         </StackPanel>
 
-        <avEdit:TextEditor Grid.Row="2" Grid.Column="2" Margin="5" x:Name="txtCode" PreviewTextInput="txtCode_PreviewTextInput"/>
+        <avEdit:TextEditor Grid.Row="2" Grid.Column="2" Margin="5" x:Name="txtCode" TextChanged="txtCode_TextChanged"/>
 
         <GridSplitter Grid.Row="2" Grid.Column="1" Grid.RowSpan="3" HorizontalAlignment="Center" VerticalAlignment="Stretch" ShowsPreview="False" Width="3" />
         <GridSplitter Grid.Row="2" Grid.Column="3" Grid.RowSpan="3" HorizontalAlignment="Center" VerticalAlignment="Stretch" ShowsPreview="False" Width="3" />
@@ -115,19 +128,34 @@
             </StackPanel>
 
             <DockPanel Grid.Row="2" Margin="0, 0, 0, 25">
-                <StackPanel DockPanel.Dock="Left" Orientation="Vertical" Width="115">
-                    <TextBlock TextAlignment="Right" Text="W-Register"/>
-                    <TextBlock TextAlignment="Right" Text="PC"/>
-                    <TextBlock TextAlignment="Right" Text="Frequency Display"/>
-                    <TextBlock TextAlignment="Right" Text="Frequency Controller"/>
-                    <TextBlock TextAlignment="Right" Text="Run Time"/>
+                <StackPanel DockPanel.Dock="Left" Orientation="Vertical" Width="85">
+                    <TextBlock TextAlignment="Right" FontFamily="Courier New" FontSize="14" Text="W-Register"/>
+                    <TextBlock TextAlignment="Right" FontFamily="Courier New" FontSize="14" Text="PC"/>
+                    <TextBlock TextAlignment="Right" FontFamily="Courier New" FontSize="14" Text="Freq Disp"/>
+                    <TextBlock TextAlignment="Right" FontFamily="Courier New" FontSize="14" Text="Freq Simu"/>
+                    <TextBlock TextAlignment="Right" FontFamily="Courier New" FontSize="14" Text="Run Time"/>
+                    <TextBlock TextAlignment="Right" FontFamily="Courier New" FontSize="14" Text="Cmd Freq"/>
+                    <StackPanel Orientation="Horizontal">
+                        <CheckBox x:Name="chkbxWatchdog" Margin="0, 0, 5, 0" Checked="chkbxWatchdog_Checked" Unchecked="chkbxWatchdog_Checked"/>
+                        <TextBlock TextAlignment="Right" FontFamily="Courier New" FontSize="14" Text="Watchdog"/>
+                    </StackPanel>
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Vertical" Margin="8, 0, 0, 0">
-                    <TextBlock Name="lblRegW"  Text="0x00"/>
-                    <TextBlock Name="lblRegPC"  Text="0x0000"/>
-                    <TextBlock Name="lblFreqView"  Text="0"/>
-                    <TextBlock Name="lblFreqModel"  Text="0"/>
-                    <TextBlock Name="lblRunTime"  Text="0"/>
+                    <TextBlock FontFamily="Courier New" FontSize="14" Name="lblRegW"        Text="0x00"/>
+                    <TextBlock FontFamily="Courier New" FontSize="14" Name="lblRegPC"       Text="0x0000"/>
+                    <TextBlock FontFamily="Courier New" FontSize="14" Name="lblFreqView"    Text="0 Hz"/>
+                    <TextBlock FontFamily="Courier New" FontSize="14" Name="lblFreqModel"   Text="0 Hz"/>
+                    <TextBlock FontFamily="Courier New" FontSize="14" Name="lblRunTime"     Text="0 s"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="1*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" FontFamily="Courier New" FontSize="14" Name="lblQuartzFreq" Text="4 MHz"/>
+                        <Button x:Name="btnSetQuartzFreq" Grid.Column="2" Content="Set" FontSize="10" Padding="0" Margin="0, 0, 0, 0" Click="btnSetQuartzFreq_Click" />
+                    </Grid>
+                    <TextBlock FontFamily="Courier New" FontSize="14" Name="lblWatchDogTmr" Text="0 %"/>
                 </StackPanel>
             </DockPanel>
         </Grid>
@@ -138,7 +166,47 @@
 
         <GridSplitter Grid.Row="3" Grid.Column="2" HorizontalAlignment="Stretch" VerticalAlignment="Center" ShowsPreview="False" Height="3" />
 
-        <Rectangle Grid.Row="4" Grid.Column="2" Fill="Salmon" Margin="5"></Rectangle>
+        <!--<Rectangle Grid.Row="4" Grid.Column="2" Fill="Salmon" Margin="5"></Rectangle>-->
+        <TabControl Grid.Row="4" Grid.Column="2" TabStripPlacement="Bottom">
+            <TabItem Header="Special Register" HorizontalAlignment="Left" Height="20" Margin="0" VerticalAlignment="Top" >
+                <ScrollViewer VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto">
+                    <WrapPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Left">
+                        <self:SpecialRegisterGrid x:Name="sgridSTATUS" Margin="5" Caption="STATUS" Title_0="C" Title_1="DC" Title_2="Z" Title_3="PD" Title_4="TO" Title_5="RP0" Title_6="RP1" Title_7="IRP"/>
+                        <self:SpecialRegisterGrid x:Name="sgridINTCON" Margin="5" Caption="INTCON" Title_0="RBIF" Title_1="INTF" Title_2="T0IF" Title_3="RBIE" Title_4="INTE" Title_5="T0IE" Title_6="EEIE" Title_7="GIE"/>
+                        <self:SpecialRegisterGrid x:Name="sgridOPTION" Margin="5" Caption="OPTION" Title_0="PS0" Title_1="PS1" Title_2="PS2" Title_3="PSA" Title_4="T0SE" Title_5="T0CS" Title_6="INTEDG" Title_7="RBPU"/>
+                    </WrapPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="7-Segment" HorizontalAlignment="Left" Height="20" Margin="0" VerticalAlignment="Top">
+                <ScrollViewer VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto">
+                    <WrapPanel Orientation="Vertical" VerticalAlignment="Bottom" HorizontalAlignment="Left">
+                        <self:SevenSegmentRegister x:Name="sevSeg_0" Margin="2, 0"/>
+                        <self:SevenSegmentRegister x:Name="sevSeg_1" Margin="2, 0"/>
+                        <self:SevenSegmentRegister x:Name="sevSeg_2" Margin="2, 0"/>
+                        <self:SevenSegmentRegister x:Name="sevSeg_3" Margin="2, 0"/>
+                        <self:SevenSegmentRegister x:Name="sevSeg_4" Margin="2, 0"/>
+                        <self:SevenSegmentRegister x:Name="sevSeg_5" Margin="2, 0"/>
+                    </WrapPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="External Clock" HorizontalAlignment="Left" Height="20" Margin="0" VerticalAlignment="Top">
+                <ScrollViewer VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto">
+                    <WrapPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <self:RegisterClock x:Name="regClock_0" Margin="2"/>
+                        <self:RegisterClock x:Name="regClock_1" Margin="2"/>
+                        <self:RegisterClock x:Name="regClock_2" Margin="2"/>
+                        <self:RegisterClock x:Name="regClock_3" Margin="2"/>
+                    </WrapPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="RS232" HorizontalAlignment="Left" Height="20" Margin="0" VerticalAlignment="Top">
+                <ScrollViewer VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto">
+                    <WrapPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <self:RS232RegisterLink x:Name="rs232_link" Margin="2"/>
+                    </WrapPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
 
     </Grid>
 </Window>

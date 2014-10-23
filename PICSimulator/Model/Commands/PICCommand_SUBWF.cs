@@ -2,6 +2,12 @@
 
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// Subtract (2’s complement method) W reg-
+	/// ister from register 'f'. If 'd' is 0 the result is
+	/// stored in the W register. If 'd' is 1 the
+	/// result is stored back in register 'f'.
+	/// </summary>
 	class PICCommand_SUBWF : PICCommand
 	{
 		public const string COMMANDCODE = "00 0010 dfff ffff";
@@ -18,7 +24,7 @@ namespace PICSimulator.Model.Commands
 
 		public override void Execute(PICController controller)
 		{
-			uint a = controller.GetRegister(Register);
+			uint a = controller.GetBankedRegister(Register);
 			uint b = controller.GetWRegister();
 
 			bool carry;
@@ -27,19 +33,19 @@ namespace PICSimulator.Model.Commands
 
 			if (carry = a < b)
 			{
-				a += 0xFF;
+				a += 0x100;
 			}
 
 			uint Result = a - b;
 
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_Z, Result == 0);
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_DC, dc);
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_C, !carry);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_Z, (Result % 0x100) == 0);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_DC, dc);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_C, !carry);
 
-			Result %= 0xFF;
+			Result %= 0x100;
 
 			if (Target)
-				controller.SetRegister(Register, Result);
+				controller.SetBankedRegister(Register, Result);
 			else
 				controller.SetWRegister(Result);
 		}

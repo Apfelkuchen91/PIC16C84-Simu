@@ -2,6 +2,11 @@
 
 namespace PICSimulator.Model.Commands
 {
+	// <summary>
+	// The contents of the W register are
+	// added to the eight bit literal 'k' and the
+	// result is placed in the W register .
+	// </summary>
 	class PICCommand_ADDLW : PICCommand
 	{
 		public const string COMMANDCODE = "11 111x kkkk kkkk";
@@ -22,11 +27,11 @@ namespace PICSimulator.Model.Commands
 			uint Result = a + b;
 			bool dc = BinaryHelper.getAdditionDigitCarry(a, b);
 
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_Z, Result == 0);
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_DC, dc);
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_C, Result > 0xFF);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_Z, (Result % 0x100) == 0);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_DC, dc);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_C, Result > 0xFF);
 
-			Result %= 0xFF;
+			Result %= 0x100;
 
 			controller.SetWRegister(Result);
 		}

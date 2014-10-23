@@ -1,6 +1,13 @@
 ﻿
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// The contents of register 'f' are rotated
+	/// one bit to the left through the Carry
+	/// Flag. If 'd' is 0 the result is placed in the
+	/// W register. If 'd' is 1 the result is stored
+	/// back in register 'f'.
+	/// </summary>
 	class PICCommand_RLF : PICCommand
 	{
 		public const string COMMANDCODE = "00 1101 dfff ffff";
@@ -17,9 +24,9 @@ namespace PICSimulator.Model.Commands
 
 		public override void Execute(PICController controller)
 		{
-			uint Result = controller.GetRegister(Register);
+			uint Result = controller.GetBankedRegister(Register);
 
-			uint Carry_Old = controller.GetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_C) ? 1u : 0u;
+			uint Carry_Old = controller.GetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_C) ? 1u : 0u;
 			uint Carry_New = (Result & 0x80) >> 7;
 
 			Result = Result << 1;
@@ -27,10 +34,10 @@ namespace PICSimulator.Model.Commands
 
 			Result |= Carry_Old;
 
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_C, Carry_New != 0);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_C, Carry_New != 0);
 
 			if (Target)
-				controller.SetRegister(Register, Result);
+				controller.SetBankedRegister(Register, Result);
 			else
 				controller.SetWRegister(Result);
 		}

@@ -1,6 +1,12 @@
 ﻿
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// The contents of register 'f' are incre-
+	/// mented. If 'd' is 0 the result is placed in
+	/// the W register. If 'd' is 1 the result is
+	/// placed back in register 'f'.
+	/// </summary>
 	class PICCommand_INCF : PICCommand
 	{
 		public const string COMMANDCODE = "00 1010 dfff ffff";
@@ -17,16 +23,16 @@ namespace PICSimulator.Model.Commands
 
 		public override void Execute(PICController controller)
 		{
-			uint Result = controller.GetRegister(Register);
+			uint Result = controller.GetBankedRegister(Register);
 
 			Result += 1;
 
-			Result %= 0xFF; // TODO Why does INCF not set the STATUS[C] Bit ???
+			Result %= 0x100;
 
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_Z, Result == 0);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_Z, Result == 0);
 
 			if (Target)
-				controller.SetRegister(Register, Result);
+				controller.SetBankedRegister(Register, Result);
 			else
 				controller.SetWRegister(Result);
 		}

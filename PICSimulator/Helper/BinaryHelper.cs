@@ -25,17 +25,17 @@ namespace PICSimulator.Helper
 
 		public static bool getAdditionDigitCarry(uint a, uint b)
 		{
-			a %= 0x10;
-			b %= 0x10;
+			a &= 0x0F;
+			b &= 0x0F;
 
-			return (a + b) > 0x10;
+			return (a + b) > 0x0F;
 		}
 
 		public static bool getSubtractionDigitCarry(uint a, uint b)
 		{
-			//TODO IMPLEMENT ME °!!!!!!!!!!!!!!!!!°
+			b = (~b) + 1; //2er Kompl
 
-			return false;
+			return getAdditionDigitCarry(a, b);
 		}
 	}
 }

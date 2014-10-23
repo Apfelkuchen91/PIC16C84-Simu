@@ -1,6 +1,10 @@
 ﻿
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// The contents of register 'f' are cleared
+	/// and the Z bit is set.
+	/// </summary>
 	class PICCommand_CLRF : PICCommand
 	{
 		public const string COMMANDCODE = "00 0001 1fff ffff";
@@ -15,8 +19,8 @@ namespace PICSimulator.Model.Commands
 
 		public override void Execute(PICController controller)
 		{
-			controller.SetRegister(Register, 0x00);
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_Z, true);
+			controller.SetBankedRegister(Register, 0x00);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_Z, true);
 		}
 
 		public override string GetCommandCodeFormat()

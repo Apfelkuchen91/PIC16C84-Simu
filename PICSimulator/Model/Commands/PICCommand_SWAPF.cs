@@ -1,6 +1,12 @@
 ﻿
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// The upper and lower nibbles of register
+	/// 'f' are exchanged. If 'd' is 0 the result is
+	/// placed in W register. If 'd' is 1 the result
+	/// is placed in register 'f'.
+	/// </summary>
 	class PICCommand_SWAPF : PICCommand
 	{
 		public const string COMMANDCODE = "00 1110 dfff ffff";
@@ -17,15 +23,15 @@ namespace PICSimulator.Model.Commands
 
 		public override void Execute(PICController controller)
 		{
-			uint Result = controller.GetRegister(Register);
+			uint Result = controller.GetBankedRegister(Register);
 
-			uint Low = Register & 0x0F;
-			uint High = Register & 0xF0;
+			uint Low = Result & 0x0F;
+			uint High = Result & 0xF0;
 
 			Result = (Low << 4) | (High >> 4);
 
 			if (Target)
-				controller.SetRegister(Register, Result);
+				controller.SetBankedRegister(Register, Result);
 			else
 				controller.SetWRegister(Result);
 		}

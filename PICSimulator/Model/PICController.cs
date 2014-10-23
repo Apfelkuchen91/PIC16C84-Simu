@@ -10,66 +10,47 @@ using System.Threading;
 
 namespace PICSimulator.Model
 {
-	public class PICController
+	public sealed class PICController
 	{
-		public const uint ADDR_INDF = 0x00;
-		public const uint ADDR_PCL = 0x02;
-		public const uint ADDR_STATUS = 0x03;
-		public const uint ADDR_FSR = 0x04;
-		public const uint ADDR_PORT_A = 0x05;
-		public const uint ADDR_PORT_B = 0x06;
-		public const uint ADDR_PCLATH = 0x0A;
-		public const uint ADDR_INTCON = 0x0B;
-
-		public const uint ADDR_OPT_REG = 0x81;
-		public const uint ADDR_TRIS_A = 0x85;
-		public const uint ADDR_TRIS_B = 0x86;
-		public const uint ADDR_EECON1 = 0x88;
-		public const uint ADDR_EECON2 = 0x89;
-
-		public const uint STATUS_BIT_IRP = 7;	// Unused in PIC16C84
-		public const uint STATUS_BIT_RP0 = 5;	// Register Bank Selection Bit
-		public const uint STATUS_BIT_TO = 4;	// Time Out Bit
-		public const uint STATUS_BIT_PD = 3;	// Power Down Bit
-		public const uint STATUS_BIT_Z = 2;		// Zero Bit
-		public const uint STATUS_BIT_DC = 1;	// Digit Carry Bit
-		public const uint STATUS_BIT_C = 0;		// Carry Bit
-
-		public static readonly List<Tuple<uint, uint>> Linked_Register = new List<Tuple<uint, uint>>() 
-		{
-			Tuple.Create(ADDR_INDF, ADDR_INDF + 0x80),
-			Tuple.Create(ADDR_PCL, ADDR_PCL + 0x80),
-			Tuple.Create(ADDR_STATUS, ADDR_STATUS + 0x80),
-			Tuple.Create(ADDR_FSR, ADDR_FSR + 0x80),
-			Tuple.Create(ADDR_PCLATH, ADDR_PCLATH + 0x80),
-			Tuple.Create(ADDR_INTCON, ADDR_INTCON + 0x80),
-		};
-
 		public FrequencyCounter Frequency = new FrequencyCounter(); // Only to see the Performance
-		public uint EmulatedFrequency = 4000000; // In Hz
+		public uint EmulatedFrequency = 1000000; // In Hz
 
 		private Thread thread;
 
 		public PICControllerMode Mode { get; private set; } // Set to true while running - false when program ended (NOT WHEN PAUSED)
 		public PICControllerSpeed SimulationSpeed;
 		private bool[] breakpoints;
-		private uint pc_cache; // For ThreadSafe PC Access
 
 		private PICCommand[] CommandList;
 
-		//public ConcurrentQueue<PICEvent> Outgoing_Events = new ConcurrentQueue<PICEvent>();
 		public ConcurrentQueue<PICEvent> Incoming_Events = new ConcurrentQueue<PICEvent>();
 
-		private uint[] register = new uint[0xFF];
+		private PICMemory Memory;
 		private uint register_W = 0x00;
 		private CircularStack CallStack = new CircularStack();
 
 		private uint Cycles = 0; // Passed Controller Cycles
+		public bool IsInSleep { get; private set; }
+
+		private PICWatchDogTimer WatchDog;
+		private PICTimer Tmr0;
+		private PICInterruptLogic Interrupt;
+		private PICClock[] Clocks = new PICClock[4];
 
 		public PICController(PICCommand[] cmds, PICControllerSpeed s)
 		{
+			Tmr0 = new PICTimer();
+			WatchDog = new PICWatchDogTimer();
+			Interrupt = new PICInterruptLogic(this);
+			Clocks[0] = new PICClock();
+			Clocks[1] = new PICClock();
+			Clocks[2] = new PICClock();
+			Clocks[3] = new PICClock();
+			Memory = new PICMemory(Tmr0, Interrupt);
+
 			Mode = PICControllerMode.WAITING;
 			SimulationSpeed = s;
+			IsInSleep = false;
 
 			CommandList = cmds;
 			breakpoints = new bool[cmds.Length];
@@ -79,14 +60,12 @@ namespace PICSimulator.Model
 
 		private void run()
 		{
-			Cycles = 0;
-			HardResetRegister();
-			ResetStack();
-
-			SetPC_13Bit(0);
+			HardReset();
 
 			while (Mode != PICControllerMode.FINISHED)
 			{
+				uint currCmdCycleCount = 1;
+
 				//################
 				//#     MISC     #
 				//################
@@ -102,7 +81,7 @@ namespace PICSimulator.Model
 				HandleIncomingEvents();
 
 				//################
-				//#   CONTROL    #
+				//#  DEBUGGING   #
 				//################
 
 				if (Mode == PICControllerMode.FINISHED)
@@ -134,26 +113,52 @@ namespace PICSimulator.Model
 					}
 				}
 
+
+
 				//################
 				//#    FETCH     #
 				//################
 
 				PICCommand cmd = CommandList[GetPC()];
 
-				//################
-				//# INCREMENT PC #
-				//################
-
 				UnreleasedSleep((int)SimulationSpeed);
 
-				SetPC_13Bit(GetPC() + 1);
+				if (!IsInSleep)
+				{
+					//################
+					//# INCREMENT PC #
+					//################
+
+					SetPC_13Bit(GetPC() + 1);
+
+					//################
+					//#   EXECUTE    #
+					//################
+
+					cmd.Execute(this);
+					currCmdCycleCount = cmd.GetCycleCount(this);
+
+
+					//################
+					//#   AFTERMATH  #
+					//################
+
+					Tmr0.Update(this, currCmdCycleCount);
+
+					Clocks[0].Update(this);
+					Clocks[1].Update(this);
+					Clocks[2].Update(this);
+					Clocks[3].Update(this);
+
+				}
 
 				//################
-				//#   EXECUTE    #
+				//#    OTHERS    #
 				//################
 
-				cmd.Execute(this);
-				Cycles += cmd.GetCycleCount(this);
+				Interrupt.Update();
+				Cycles += currCmdCycleCount;
+				WatchDog.Update(this, currCmdCycleCount);
 			}
 
 			Mode = PICControllerMode.WAITING;
@@ -194,7 +199,16 @@ namespace PICSimulator.Model
 			{
 				ManuallyRegisterChangedEvent ce = e as ManuallyRegisterChangedEvent;
 
-				SetRegister(ce.Position, ce.Value);
+				SetUnbankedRegister(ce.Position, ce.Value);
+			}
+			else if (e is ExternalClockChangedEvent)
+			{
+				ExternalClockChangedEvent ce = e as ExternalClockChangedEvent;
+
+				if (ce.ClockID < 4)
+				{
+					Clocks[ce.ClockID].UpdateState(ce);
+				}
 			}
 			else
 			{
@@ -202,79 +216,82 @@ namespace PICSimulator.Model
 			}
 		}
 
-		public void SetRegister(uint p, uint n, bool forceEvent = false)
+		public uint GetBankedRegister(uint p)
 		{
-			n %= 0xFF; // Just 4 Safety
-
-			if (GetRegister(p) != n || forceEvent)
-			{
-				register[p] = n;
-			}
-
-			uint? link;
-
-			if ((link = GetLinkedRegister(p)) != null)
-			{
-				if (register[link.Value] != n)
-				{
-					SetRegister(link.Value, n);  // NO FORCE !!
-				}
-			}
+			return Memory.GetBankedRegister(p);
 		}
 
-		public void SetRegisterBit(uint p, uint bitpos, bool newVal)
+		public void SetBankedRegister(uint p, uint n)
 		{
-			SetRegister(p, BinaryHelper.SetBit(GetRegister(p), bitpos, newVal));
+			Memory.SetBankedRegister(p, n);
 		}
 
-		public bool GetRegisterBit(uint p, uint bitpos)
+		public void SetBankedRegisterBit(uint p, uint bitpos, bool newVal)
 		{
-			return BinaryHelper.GetBit(GetRegister(p), bitpos);
+			Memory.SetBankedRegisterBit(p, bitpos, newVal);
 		}
 
-		public uint GetRegister(uint p)
+		public bool GetBankedRegisterBit(uint p, uint bitpos)
 		{
-			return register[p];
+			return Memory.GetBankedRegisterBit(p, bitpos);
+		}
+
+		public uint GetUnbankedRegister(uint p)
+		{
+			return Memory.GetRegister(p);
+		}
+
+		public void SetUnbankedRegister(uint p, uint n)
+		{
+			Memory.SetRegister(p, n);
+		}
+
+		public void SetUnbankedRegisterBit(uint p, uint bitpos, bool newVal)
+		{
+			Memory.SetRegisterBit(p, bitpos, newVal);
+		}
+
+		public bool GetUnbankedRegisterBit(uint p, uint bitpos)
+		{
+			return Memory.GetRegisterBit(p, bitpos);
 		}
 
 		public void SetWRegister(uint n, bool forceEvent = false)
 		{
-			n %= 0xFF; // Just 4 Safety
+			n %= 0x100; // Just 4 Safety
 
 			if (register_W != n || forceEvent)
 			{
 				register_W = n;
 			}
+		}
 
+		private void HardReset()
+		{
+			Cycles = 0;
+			IsInSleep = false;
+			Memory.HardResetRegister();
+
+			ResetStack();
+			Interrupt.Reset();
+			WatchDog.Reset();
+
+			SetPC_13Bit(0);
+		}
+
+		public void SoftReset()
+		{
+			Memory.SoftResetRegister();
+
+			ResetStack();
+			Interrupt.Reset();
+
+			SetPC_13Bit(0);
 		}
 
 		public uint GetWRegister()
 		{
 			return register_W;
-		}
-
-		private void HardResetRegister()
-		{
-			for (uint i = 0; i < 0xFF; i++)
-			{
-				SetRegister(i, 0x00);
-			}
-
-			SetRegister(ADDR_STATUS, 0x18);
-			SetRegister(ADDR_OPT_REG, 0xFF);
-			SetRegister(ADDR_TRIS_A, 0x1F);
-			SetRegister(ADDR_TRIS_B, 0xFF);
-		}
-
-		private void SoftResetRegister()
-		{
-			SetRegister(ADDR_PCL, 0x00);
-			SetRegister(ADDR_PCLATH, 0x00);
-			SetRegister(ADDR_INTCON, (GetRegister(ADDR_INTCON) & 0x01));
-			SetRegister(ADDR_OPT_REG, 0xFF);
-			SetRegister(ADDR_TRIS_A, 0x1F);
-			SetRegister(ADDR_TRIS_B, 0xFF);
-			SetRegister(ADDR_EECON1, (GetRegister(ADDR_EECON1) & 0x08));
 		}
 
 		private void ResetStack()
@@ -284,24 +301,17 @@ namespace PICSimulator.Model
 
 		public uint GetPC()
 		{
-			pc_cache = (uint)((GetRegister(ADDR_PCLATH) & ~0x1F) << 8) | GetRegister(ADDR_PCL);
-			return pc_cache;
+			return Memory.GetPC();
 		}
 
 		public void SetPC_13Bit(uint value)
 		{
-			uint Low = value & 0xFF;
-			uint High = (value >> 8) & 0x1F;
-
-			SetRegister(ADDR_PCL, Low);
-			SetRegister(ADDR_PCLATH, High);
+			Memory.SetPC(value);
 		}
 
 		public void SetPC_11Bit(uint value)
 		{
-			value |= (GetRegister(ADDR_PCLATH) & 0x18) << 8;
-
-			SetPC_13Bit(value);
+			Memory.SetPC_11Bit(value);
 		}
 
 		public void PushCallStack(uint v)
@@ -312,6 +322,12 @@ namespace PICSimulator.Model
 		public uint PopCallStack()
 		{
 			return CallStack.Pop();
+		}
+
+		public void DoInterrupt(PICInterruptType Type)
+		{
+			WakeUp();
+			Interrupt.AddInterrupt(Type);
 		}
 
 		#endregion
@@ -360,9 +376,29 @@ namespace PICSimulator.Model
 
 		#region Helper
 
-		public uint GetThreadSafePC()
+		public PICClock GetExternalClock(uint id)
 		{
-			return pc_cache;
+			return Clocks[id];
+		}
+
+		public void StartSleep()
+		{
+			IsInSleep = true;
+		}
+
+		public void WakeUp()
+		{
+			IsInSleep = false;
+		}
+
+		public double GetWatchDogPerc()
+		{
+			return WatchDog.GetPerc();
+		}
+
+		public PICWatchDogTimer GetWatchDog()
+		{
+			return WatchDog;
 		}
 
 		public long GetSCLineForPC(uint pc)
@@ -382,12 +418,12 @@ namespace PICSimulator.Model
 
 		public void RaiseCompleteEventResetChain()
 		{
-			for (uint i = 0; i < 0xFF; i++)
+			for (uint i = 0; i < 0x100; i++)
 			{
-				SetRegister(i, GetRegister(i), true);
+				SetUnbankedRegister(i, GetUnbankedRegister(i));
 			}
 
-			SetWRegister(GetWRegister(), true);
+			SetWRegister(GetWRegister());
 		}
 
 		public uint GetRunTime() // in us
@@ -395,17 +431,37 @@ namespace PICSimulator.Model
 			return (uint)(Cycles / (EmulatedFrequency / 1000000.0));
 		}
 
-		public uint? GetLinkedRegister(uint r)
-		{
-			// One Expression to rule them all.
-			return Linked_Register.Count(p => (p.Item1 == r || p.Item2 == r)) == 1 ? (Linked_Register.Where(p => (p.Item1 == r || p.Item2 == r)).Select(p => p.Item1 + p.Item2).Single() - r) : ((uint?)null);
-		}
-
 		public Stack<uint> GetThreadSafeCallStack()
 		{
 			return CallStack.getAsNativeStack();
 		}
 
+		public bool IsWatchDogEnabled()
+		{
+			return WatchDog.Enabled;
+		}
+
+		public void SetWatchDogEnabled(bool e)
+		{
+			WatchDog.Enabled = e;
+		}
+
 		#endregion
+
 	}
 }
+
+//TODO Officia Tests:
+/*
+
+[X] Test_1
+[X] Test_2
+[X] Test_3
+[O] Test_4
+[O] Test_5
+[X] Test_6
+[O] Test_7
+[O] Test_8
+[O] Test_9
+
+*/

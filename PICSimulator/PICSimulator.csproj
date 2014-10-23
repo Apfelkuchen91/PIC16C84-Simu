@@ -51,6 +51,24 @@
     <Reference Include="WindowsBase" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
+    <Reference Include="Xceed.Wpf.AvalonDock">
+      <HintPath>..\packages\Extended.Wpf.Toolkit.2.1.0\lib\net40\Xceed.Wpf.AvalonDock.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.AvalonDock.Themes.Aero">
+      <HintPath>..\packages\Extended.Wpf.Toolkit.2.1.0\lib\net40\Xceed.Wpf.AvalonDock.Themes.Aero.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.AvalonDock.Themes.Metro">
+      <HintPath>..\packages\Extended.Wpf.Toolkit.2.1.0\lib\net40\Xceed.Wpf.AvalonDock.Themes.Metro.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.AvalonDock.Themes.VS2010">
+      <HintPath>..\packages\Extended.Wpf.Toolkit.2.1.0\lib\net40\Xceed.Wpf.AvalonDock.Themes.VS2010.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.DataGrid">
+      <HintPath>..\packages\Extended.Wpf.Toolkit.2.1.0\lib\net40\Xceed.Wpf.DataGrid.dll</HintPath>
+    </Reference>
+    <Reference Include="Xceed.Wpf.Toolkit">
+      <HintPath>..\packages\Extended.Wpf.Toolkit.2.1.0\lib\net40\Xceed.Wpf.Toolkit.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
@@ -102,6 +120,9 @@
     <Compile Include="Model\Commands\PICCommand_DECFSZ.cs" />
     <Compile Include="Model\Commands\PICCommand_INCF.cs" />
     <Compile Include="Model\Commands\PICCommand_INCFSZ.cs" />
+    <Compile Include="Model\Events\Incoming\ExternalClockChangedEvent.cs" />
+    <Compile Include="Model\PICClock.cs" />
+    <Compile Include="Model\PICInterruptLogic.cs" />
     <Compile Include="Model\PICControllerSpeed.cs" />
     <Compile Include="Model\Events\Incoming\BreakPointChangedEvent.cs" />
     <Compile Include="Model\Events\Incoming\ChangePICModeEvent.cs" />
@@ -109,7 +130,14 @@
     <Compile Include="Model\Events\PICEvent.cs" />
     <Compile Include="Model\PICController.cs" />
     <Compile Include="Model\PICControllerMode.cs" />
+    <Compile Include="Model\PICInterruptType.cs" />
+    <Compile Include="Model\PICMemory.cs" />
     <Compile Include="Model\PICProgramLoader.cs" />
+    <Compile Include="Model\PICTimer.cs" />
+    <Compile Include="Model\PICWatchDogTimer.cs" />
+    <Compile Include="View\Controls\7SegmentDisplay.xaml.cs">
+      <DependentUpon>7SegmentDisplay.xaml</DependentUpon>
+    </Compile>
     <Compile Include="View\Controls\CircularStackDisplay.xaml.cs">
       <DependentUpon>CircularStackDisplay.xaml</DependentUpon>
     </Compile>
@@ -118,6 +146,15 @@
     </Compile>
     <Compile Include="View\Controls\ChangeMarkTextBlock.xaml.cs">
       <DependentUpon>ChangeMarkTextBlock.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Controls\RS232RegisterLink.xaml.cs">
+      <DependentUpon>RS232RegisterLink.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Controls\SpecialRegisterGrid.xaml.cs">
+      <DependentUpon>SpecialRegisterGrid.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Dialogs\FrequencyInputDialog.xaml.cs">
+      <DependentUpon>FrequencyInputDialog.xaml</DependentUpon>
     </Compile>
     <Compile Include="View\IconBarMargin.cs" />
     <Compile Include="View\Controls\IORegisterGrid.xaml.cs">
@@ -135,6 +172,15 @@
     </Compile>
     <Compile Include="View\Controls\SimpleToolbarSeparator.xaml.cs">
       <DependentUpon>SimpleToolbarSeparator.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Controls\SevenSegmentRegister.xaml.cs">
+      <DependentUpon>SevenSegmentRegister.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Controls\RegisterBox.xaml.cs">
+      <DependentUpon>RegisterBox.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="View\Controls\RegisterClock.xaml.cs">
+      <DependentUpon>RegisterClock.xaml</DependentUpon>
     </Compile>
     <Compile Include="View\SourcecodeDocument.cs" />
   </ItemGroup>
@@ -157,6 +203,7 @@
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
     <None Include="Assembler.xshd" />
+    <None Include="ClassDiagram1.cd" />
     <None Include="Compiler\ass16txt.ger">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -166,18 +213,24 @@
     <None Include="Compiler\il_bas16.pic">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="HELP_PDF.pdf" />
     <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
     <AppDesigner Include="Properties\" />
+    <None Include="res\DataSheet.pdf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <Page Include="View\Controls\7SegmentDisplay.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="View\Controls\CircularStackDisplay.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -190,11 +243,27 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="View\Controls\RS232RegisterLink.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\Controls\SimpleToolbarButtonTheme.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\Controls\SpecialRegisterGrid.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="View\Controls\IORegisterGrid.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="View\Controls\RegisterGrid.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\Dialogs\FrequencyInputDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -210,6 +279,18 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+    <Page Include="View\Controls\SevenSegmentRegister.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\Controls\RegisterBox.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="View\Controls\RegisterClock.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="View\Theme.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -222,6 +303,7 @@
     <Content Include="Compiler\il_ass16.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Resource Include="icons\blue-document-pdf-text.png" />
     <Resource Include="icons\arrow-curve-000-left.png" />
     <Resource Include="icons\sealing-arrow.png" />
     <Resource Include="icons\sealing-wax.png" />
@@ -236,6 +318,7 @@
     <Resource Include="icons\folder-open.png" />
     <Resource Include="icons\arrow-left.png" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

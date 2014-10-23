@@ -1,6 +1,9 @@
 ﻿
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// Bit 'b' in register 'f' is set.
+	/// </summary>
 	class PICCommand_BSF : PICCommand
 	{
 		public const string COMMANDCODE = "01 01bb bfff ffff";
@@ -17,7 +20,7 @@ namespace PICSimulator.Model.Commands
 
 		public override void Execute(PICController controller)
 		{
-			controller.SetRegisterBit(Register, Bit, true);
+			controller.SetBankedRegisterBit(Register, Bit, true);
 		}
 
 		public override string GetCommandCodeFormat()

@@ -1,7 +1,14 @@
-﻿using System;
-
+﻿
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// Return from Interrupt. Stack is POPed
+	/// and Top of Stack (TOS) is loaded in the
+	/// PC. Interrupts are enabled by setting
+	/// Global Interrupt Enable bit, GIE
+	/// (INTCON<7>). This is a two cycle
+	/// instruction.
+	/// </summary>
 	class PICCommand_RETFIE : PICCommand
 	{
 		public const string COMMANDCODE = "00 0000 0000 1001";
@@ -14,7 +21,8 @@ namespace PICSimulator.Model.Commands
 
 		public override void Execute(PICController controller)
 		{
-			throw new System.NotImplementedException(); //TODO Implement Interrupts
+			controller.SetPC_13Bit(controller.PopCallStack());
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_INTCON, PICMemory.INTCON_BIT_GIE, true);
 		}
 
 		public override string GetCommandCodeFormat()
@@ -24,7 +32,7 @@ namespace PICSimulator.Model.Commands
 
 		public override uint GetCycleCount(PICController controller)
 		{
-			throw new NotImplementedException();
+			return 2;
 		}
 	}
 }

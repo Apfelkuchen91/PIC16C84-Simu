@@ -1,6 +1,16 @@
 ﻿
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// The contents of register 'f' are decre-
+	/// mented. If 'd' is 0 the result is placed in the
+	/// W register. If 'd' is 1 the result is placed
+	/// back in register 'f'.
+	/// If the result is 1, the next instruction, is
+	/// executed. If the result is 0, then a NOP is
+	/// executed instead making it a 2T CY instruc-
+	/// tion.
+	/// </summary>
 	class PICCommand_DECF : PICCommand
 	{
 		public const string COMMANDCODE = "00 0011 dfff ffff";
@@ -17,17 +27,17 @@ namespace PICSimulator.Model.Commands
 
 		public override void Execute(PICController controller)
 		{
-			uint Result = controller.GetRegister(Register);
+			uint Result = controller.GetBankedRegister(Register);
 
 			if (Result == 0)
 				Result = 0xFF;
 			else
 				Result -= 1;
 
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_Z, Result == 0);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_Z, Result == 0);
 
 			if (Target)
-				controller.SetRegister(Register, Result);
+				controller.SetBankedRegister(Register, Result);
 			else
 				controller.SetWRegister(Result);
 

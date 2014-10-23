@@ -1,6 +1,16 @@
 ﻿
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// The contents of register 'f' are incre-
+	/// mented. If 'd' is 0 the result is placed in
+	/// the W register. If 'd' is 1 the result is
+	/// placed back in register 'f'.
+	/// If the result is 1, the next instruction is
+	/// executed. If the result is 0, a NOP is exe-
+	/// cuted instead making it a 2T CY instruc-
+	/// tion .
+	/// </summary>
 	class PICCommand_INCFSZ : PICCommand
 	{
 		public const string COMMANDCODE = "00 1111 dfff ffff";
@@ -17,21 +27,21 @@ namespace PICSimulator.Model.Commands
 
 		private bool TestCondition(PICController controller) // Returns True if Skip
 		{
-			return controller.GetRegister(Register) == 0xFF; // skip if 0xFF -> After DEC will be Zero
+			return controller.GetBankedRegister(Register) == 0xFF; // skip if 0xFF -> After DEC will be Zero
 		}
 
 		public override void Execute(PICController controller)
 		{
 			bool Cond = TestCondition(controller);
 
-			uint Result = controller.GetRegister(Register);
+			uint Result = controller.GetBankedRegister(Register);
 
 			Result += 1;
 
-			Result %= 0xFF;
+			Result %= 0x100;
 
 			if (Target)
-				controller.SetRegister(Register, Result);
+				controller.SetBankedRegister(Register, Result);
 			else
 				controller.SetWRegister(Result);
 

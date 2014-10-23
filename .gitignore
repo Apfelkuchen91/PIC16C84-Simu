@@ -179,3 +179,10 @@ FakesAssemblies/
 
 PICSimulator/TestData/
 !PICSimulator/TestData/*.src
+*.ERR
+*.LST
+*.SRX
+*.SYM
+*/Test*/*.bin
+*/Test*/*.tdg
+*/Test*/*.ini

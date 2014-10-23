@@ -1,6 +1,13 @@
 ﻿
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// The contents of register 'f' are comple-
+	/// mented. If 'd' is 0 the result is stored in
+	/// W. If 'd' is 1 the result is stored back in
+	/// register 'f'.
+	/// </summary>
+
 	class PICCommand_COMF : PICCommand
 	{
 		public const string COMMANDCODE = "00 1001 dfff ffff";
@@ -17,12 +24,12 @@ namespace PICSimulator.Model.Commands
 
 		public override void Execute(PICController controller)
 		{
-			uint Result = ~controller.GetRegister(Register);
+			uint Result = ~controller.GetBankedRegister(Register);
 
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_Z, Result == 0);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_Z, Result == 0);
 
 			if (Target)
-				controller.SetRegister(Register, Result);
+				controller.SetBankedRegister(Register, Result);
 			else
 				controller.SetWRegister(Result);
 		}

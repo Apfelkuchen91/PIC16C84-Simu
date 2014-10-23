@@ -1,7 +1,13 @@
-﻿using System;
-
+﻿
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// CLRWDT instruction resets the Watch-
+	/// dog Timer. It also resets the prescaler
+	/// of the WDT. Status bits TO and PD are
+	/// set.
+	/// </summary>
+
 	class PICCommand_CLRWDT : PICCommand
 	{
 		public const string COMMANDCODE = "00 0000 0110 0100";
@@ -14,7 +20,19 @@ namespace PICSimulator.Model.Commands
 
 		public override void Execute(PICController controller)
 		{
-			throw new System.NotImplementedException(); //TODO Implement Watchdog
+			PICWatchDogTimer wdt = controller.GetWatchDog();
+
+			wdt.Reset();
+
+			if (controller.GetUnbankedRegisterBit(PICMemory.ADDR_OPTION, PICMemory.OPTION_BIT_PSA))
+			{
+				controller.SetUnbankedRegisterBit(PICMemory.ADDR_OPTION, PICMemory.OPTION_BIT_PS0, false);
+				controller.SetUnbankedRegisterBit(PICMemory.ADDR_OPTION, PICMemory.OPTION_BIT_PS1, false);
+				controller.SetUnbankedRegisterBit(PICMemory.ADDR_OPTION, PICMemory.OPTION_BIT_PS2, false);
+			}
+
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_TO, true);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_PD, true);
 		}
 
 		public override string GetCommandCodeFormat()
@@ -24,7 +42,7 @@ namespace PICSimulator.Model.Commands
 
 		public override uint GetCycleCount(PICController controller)
 		{
-			throw new NotImplementedException();
+			return 1;
 		}
 	}
 }

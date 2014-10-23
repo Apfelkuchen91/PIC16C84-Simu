@@ -6,8 +6,7 @@ using PICSimulator.Model.Events;
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Reflection;
-using System.Text;
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -28,8 +27,6 @@ namespace PICSimulator.View
 
 		private IconBarMargin IconBar;
 
-		public bool CodeIsReadOnly { get { return false; } set { } }
-
 		public MainWindow()
 		{
 			InitializeComponent();
@@ -38,15 +35,6 @@ namespace PICSimulator.View
 
 
 			sc_document = new SourcecodeDocument(this, txtCode);
-
-			string p = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), @"..\..\"));
-			p = Path.Combine(p, @"Testdata_2\test.src");
-
-			sc_document = new SourcecodeDocument( //TODO Remove Me - Only for ... reasons
-				this,
-				txtCode,
-				File.ReadAllText(p, Encoding.Default),
-				p);
 
 			DispatcherTimer itimer = new DispatcherTimer(DispatcherPriority.ApplicationIdle);
 			itimer.Tick += (s, e) => onIdle();
@@ -66,17 +54,35 @@ namespace PICSimulator.View
 			txtCode.ShowLineNumbers = true;
 			txtCode.Options.CutCopyWholeLine = true;
 
-			txtCode.TextArea.LeftMargins.Insert(0, IconBar = new IconBarMargin(this));
+			txtCode.TextArea.LeftMargins.Insert(0, IconBar = new IconBarMargin(this, txtCode));
 
 			//#####################
 
 			rgridMain.ParentWindow = this;
 
-			iogridA.Initialize(rgridMain, PICController.ADDR_PORT_A, PICController.ADDR_TRIS_A);
-			iogridB.Initialize(rgridMain, PICController.ADDR_PORT_B, PICController.ADDR_TRIS_B);
+			iogridA.Initialize(rgridMain, PICMemory.ADDR_PORT_A, PICMemory.ADDR_TRIS_A);
+			iogridB.Initialize(rgridMain, PICMemory.ADDR_PORT_B, PICMemory.ADDR_TRIS_B);
+
+			sgridSTATUS.Initialize(rgridMain, PICMemory.ADDR_STATUS);
+			sgridINTCON.Initialize(rgridMain, PICMemory.ADDR_INTCON);
+			sgridOPTION.Initialize(rgridMain, PICMemory.ADDR_OPTION);
+
+			sevSeg_0.Initialize(rgridMain);
+			sevSeg_1.Initialize(rgridMain);
+			sevSeg_2.Initialize(rgridMain);
+			sevSeg_3.Initialize(rgridMain);
+			sevSeg_4.Initialize(rgridMain);
+			sevSeg_5.Initialize(rgridMain);
+
+			regClock_0.Intialize(this, 0);
+			regClock_1.Intialize(this, 1);
+			regClock_2.Intialize(this, 2);
+			regClock_3.Intialize(this, 3);
+
+			rs232_link.Intialize();
 		}
 
-		#region Event Handler
+		#region UI Event Handler
 
 		#region New
 
@@ -100,17 +106,50 @@ namespace PICSimulator.View
 
 		private void OpenEnabled(object sender, CanExecuteRoutedEventArgs e)
 		{
-			e.CanExecute = controller == null || controller.Mode == PICControllerMode.FINISHED;
+			e.CanExecute = controller == null || controller.Mode == PICControllerMode.FINISHED || controller.Mode == PICControllerMode.WAITING;
 
 			e.Handled = true;
 		}
 
 		private void OpenExecuted(object sender, ExecutedRoutedEventArgs e)
 		{
+			if (controller != null && (controller.Mode == PICControllerMode.WAITING || controller.Mode == PICControllerMode.FINISHED))
+			{
+				controller = null;
+			}
+
+			bool isLST;
+
 			sc_document.AskSaveIfDirty();
 
+			sc_document = SourcecodeDocument.OpenNew(this, txtCode, out isLST) ?? sc_document;
 
-			sc_document = SourcecodeDocument.OpenNew(this, txtCode) ?? sc_document;
+			if (isLST)
+			{
+				if (!sc_document.Save())
+				{
+					return;
+				}
+
+				string resultPath = Path.Combine(Path.GetDirectoryName(sc_document.Path), Path.GetFileNameWithoutExtension(sc_document.Path) + ".lst");
+
+				if (File.Exists(resultPath))
+				{
+					var cmds = PICProgramLoader.LoadFromFile(resultPath);
+
+					if (cmds == null)
+					{
+						MessageBox.Show("Error while reading compiled file.");
+						sc_document.MakeDirty();
+						return;
+					}
+
+					controller = new PICController(cmds, getSimuSpeedFromComboBox());
+					controller.RaiseCompleteEventResetChain();
+					stackList.Reset();
+					IconBar.Reset();
+				}
+			}
 		}
 
 		#endregion
@@ -188,6 +227,8 @@ namespace PICSimulator.View
 				File.Delete(resultPath);
 			}
 
+			Thread.Sleep(350);
+
 			Process proc = new Process()
 			{
 				StartInfo = new ProcessStartInfo(@"Compiler\il_ass16.exe", '"' + sc_document.Path + '"')
@@ -203,6 +244,7 @@ namespace PICSimulator.View
 				if (cmds == null)
 				{
 					MessageBox.Show("Error while reading compiled file.");
+					sc_document.MakeDirty();
 					return;
 				}
 
@@ -242,6 +284,8 @@ namespace PICSimulator.View
 
 		private void PauseExecuted(object sender, ExecutedRoutedEventArgs e)
 		{
+			IconBar.MakeNextPCVisible();
+
 			controller.Step();
 		}
 
@@ -290,6 +334,8 @@ namespace PICSimulator.View
 
 		private void StepExecuted(object sender, ExecutedRoutedEventArgs e)
 		{
+			IconBar.MakeNextPCVisible();
+
 			if (controller.Mode == PICControllerMode.PAUSED)
 			{
 				controller.Step();
@@ -297,6 +343,39 @@ namespace PICSimulator.View
 			else if (controller.Mode == PICControllerMode.WAITING)
 			{
 				controller.StartPaused();
+			}
+		}
+
+		#endregion
+
+		#region Other
+
+		private void Window_Closed(object sender, EventArgs e)
+		{
+			if (controller != null)
+				controller.Stop(); // Kill 'em with fire
+		}
+
+		private void cbxSpeed_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+		{
+			if (controller != null)
+			{
+				controller.SimulationSpeed = getSimuSpeedFromComboBox();
+			}
+		}
+
+		private void OnHelpClicked(object sender, RoutedEventArgs e)
+		{
+			string path = @"res\DataSheet.pdf";
+
+			Process.Start(path);
+		}
+
+		private void txtCode_TextChanged(object sender, EventArgs e)
+		{
+			if (controller != null && (controller.Mode == PICControllerMode.WAITING || controller.Mode == PICControllerMode.FINISHED))
+			{
+				controller = null;
 			}
 		}
 
@@ -315,15 +394,63 @@ namespace PICSimulator.View
 				UpdateRegister();
 				UpdateStackDisplay();
 
-				IconBar.SetPC(controller.GetSCLineForPC(controller.GetThreadSafePC()));
+				IconBar.SetPC(controller.GetSCLineForPC(controller.GetPC()));
 
 				lblFreqModel.Text = FormatFreq((uint)controller.Frequency.Frequency);
 				lblFreqView.Text = FormatFreq((uint)IdleCounter.Frequency);
-				lblRunTime.Text = String.Format("{0:0000} \u00B5", controller.GetRunTime());
+				lblRunTime.Text = FormatRuntime(controller.GetRunTime());
 				lblRegW.Text = "0x" + string.Format("{0:X02}", controller.GetWRegister());
+				lblRegPC.Text = "0x" + string.Format("{0:X04}", controller.GetPC());
+				lblQuartzFreq.Text = FormatFreq(controller.EmulatedFrequency);
+				btnSetQuartzFreq.IsEnabled = true;
+				lblWatchDogTmr.Text = string.Format("{0:000.000} %", controller.GetWatchDogPerc() * 100);
+				chkbxWatchdog.IsEnabled = true;
+				chkbxWatchdog.IsChecked = controller.IsWatchDogEnabled();
 
-				CommandManager.InvalidateRequerySuggested();
+				regClock_0.UpdateUI(controller);
+				regClock_1.UpdateUI(controller);
+				regClock_2.UpdateUI(controller);
+				regClock_3.UpdateUI(controller);
+
+				regClock_0.IsEnabled = controller.Mode == PICControllerMode.WAITING || controller.Mode == PICControllerMode.PAUSED;
+				regClock_1.IsEnabled = controller.Mode == PICControllerMode.WAITING || controller.Mode == PICControllerMode.PAUSED;
+				regClock_2.IsEnabled = controller.Mode == PICControllerMode.WAITING || controller.Mode == PICControllerMode.PAUSED;
+				regClock_3.IsEnabled = controller.Mode == PICControllerMode.WAITING || controller.Mode == PICControllerMode.PAUSED;
+
+				rs232_link.Update(controller);
 			}
+			else
+			{
+				ClearRegister();
+				ClearStackDisplay();
+
+				IconBar.SetPC(0);
+
+				lblFreqModel.Text = FormatFreq(0);
+				lblFreqView.Text = FormatFreq(0);
+				lblRunTime.Text = FormatRuntime(0);
+				lblRegW.Text = "0x" + string.Format("{0:X02}", 0);
+				lblRegPC.Text = "0x" + string.Format("{0:X04}", 0);
+				lblQuartzFreq.Text = FormatFreq(0);
+				btnSetQuartzFreq.IsEnabled = false;
+				lblWatchDogTmr.Text = string.Format("{0:000,000} %", 0);
+				chkbxWatchdog.IsEnabled = false;
+
+				regClock_0.ResetUI();
+				regClock_1.ResetUI();
+				regClock_2.ResetUI();
+				regClock_3.ResetUI();
+
+				regClock_0.IsEnabled = false;
+				regClock_1.IsEnabled = false;
+				regClock_2.IsEnabled = false;
+				regClock_3.IsEnabled = false;
+
+				rs232_link.Update(controller);
+			}
+
+			txtCode.IsReadOnly = controller != null && controller.Mode != PICControllerMode.WAITING;
+			CommandManager.InvalidateRequerySuggested();
 		}
 
 		private void UpdateStackDisplay()
@@ -331,11 +458,24 @@ namespace PICSimulator.View
 			stackList.UpdateValues(controller.GetThreadSafeCallStack(), controller);
 		}
 
+		private void ClearStackDisplay()
+		{
+			stackList.Reset();
+		}
+
 		private void UpdateRegister()
 		{
-			for (uint i = 0; i < 0xFF; i++)
+			for (uint i = 0; i < 0x100; i++)
 			{
-				rgridMain.Set(i, controller.GetRegister(i), true, false); // Tests in Set if val has changed ....
+				rgridMain.Set(i, controller.GetUnbankedRegister(i), true, false); // Tests in Set if val has changed ....
+			}
+		}
+
+		private void ClearRegister()
+		{
+			for (uint i = 0; i < 0x100; i++)
+			{
+				rgridMain.Set(i, 0, true, false); // Tests in Set if val has changed ....
 			}
 		}
 
@@ -363,15 +503,15 @@ namespace PICSimulator.View
 		{
 			if (us < 2000)
 			{
-				return string.Format("{0} \u00B5", us);
+				return string.Format("{0:000000} \u00B5" + "s", us);
 			}
 			else if (us < 2000000)
 			{
-				return string.Format("{0} ms", us / 1000.0);
+				return string.Format("{0:0000.0} ms", us / 1000.0);
 			}
 			else if (us < 2000000000)
 			{
-				return string.Format("{0} s", (us / 1000) / 1000.0);
+				return string.Format("{0:00000.0} s", (us / 1000) / 1000.0);
 			}
 			else
 			{
@@ -380,17 +520,6 @@ namespace PICSimulator.View
 		}
 
 		#endregion
-
-		private void txtCode_PreviewTextInput(object sender, TextCompositionEventArgs e)
-		{
-			e.Handled = !(sc_document != null && (controller == null || controller.Mode == PICControllerMode.FINISHED));
-		}
-
-		private void Window_Closed(object sender, EventArgs e)
-		{
-			if (controller != null) // TODO Wont work ?? --> Max Speed ??
-				controller.Stop(); // Kill 'em with fire
-		}
 
 		public bool OnBreakPointChanged(int line, bool newVal)
 		{
@@ -436,30 +565,25 @@ namespace PICSimulator.View
 				case 6:
 					return PICControllerSpeed.Maximum;
 				default:
-					throw new Exception(); // TODO Change type to sth useful
+					throw new Exception();
 			}
 		}
 
-		private void cbxSpeed_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+		private void btnSetQuartzFreq_Click(object sender, RoutedEventArgs e)
 		{
 			if (controller != null)
 			{
-				controller.SimulationSpeed = getSimuSpeedFromComboBox();
+				FrequencyInputDialog.Show(controller.EmulatedFrequency, (p) =>
+				{
+					if (controller != null)
+						controller.EmulatedFrequency = (uint)p;
+				});
 			}
 		}
 
-        private void OnShowpdf(object sender, RoutedEventArgs e)
-        {
-            string path = Path.Combine(Directory.GetCurrentDirectory(), "HELP_PDF.pdf");
-/*            Process P = new Process
-            {
-                StartInfo = { FileName = "AcroRd32.exe", Arguments = path }
-            };
-            P.Start();
-*/
-            String openPDFFile = Path.Combine(Directory.GetCurrentDirectory(), "HELP_PDF.pdf"); ;
-            
-            System.Diagnostics.Process.Start(openPDFFile); 
-        }
+		private void chkbxWatchdog_Checked(object sender, RoutedEventArgs e)
+		{
+			controller.SetWatchDogEnabled(!controller.IsWatchDogEnabled());
+		}
 	}
 }

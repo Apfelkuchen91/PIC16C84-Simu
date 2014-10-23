@@ -1,6 +1,12 @@
 ﻿
 namespace PICSimulator.Model.Commands
 {
+	/// <summary>
+	/// The contents of the W register are
+	/// XOR’ed with the eight bit literal 'k'.
+	/// The result is placed in the W regis-
+	/// ter.
+	/// </summary>
 	class PICCommand_XORLW : PICCommand
 	{
 		public const string COMMANDCODE = "11 1010 kkkk kkkk";
@@ -18,7 +24,7 @@ namespace PICSimulator.Model.Commands
 			uint Result = controller.GetWRegister() ^ Literal;
 
 			controller.SetWRegister(Result);
-			controller.SetRegisterBit(PICController.ADDR_STATUS, PICController.STATUS_BIT_Z, Result == 0);
+			controller.SetUnbankedRegisterBit(PICMemory.ADDR_STATUS, PICMemory.STATUS_BIT_Z, Result == 0);
 		}
 
 		public override string GetCommandCodeFormat()
